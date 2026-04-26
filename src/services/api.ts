@@ -1,6 +1,7 @@
 import type { GenerateRequest, GenerateResponse, AppError } from '../types';
 
-const CLAWROUTER_URL = '/api/v1/chat/completions';
+// Use a relative URL so it works on Cloudflare Pages (Functions) and locally.
+const CLAWROUTER_URL = '/v1/chat/completions';
 
 export const FREE_MODELS = [
   { id: 'nvidia/gpt-oss-120b', name: 'GPT-OSS 120B' },
