@@ -81,7 +81,7 @@ export function MainPage() {
 
       {!docked && (
         <div className="hero">
-          <h1 className="hero-title">AI Designer</h1>
+          <h1 className="hero-title">mono</h1>
           <p className="hero-sub">Describe anything — get a design instantly</p>
         </div>
       )}

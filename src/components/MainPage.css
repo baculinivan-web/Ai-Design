@@ -26,6 +26,17 @@
 
 .hero-title {
   font-size: clamp(32px, 6vw, 56px);
+  font-family:
+    "SF Compact Rounded",
+    "SF Pro Rounded",
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
   font-weight: 700;
   letter-spacing: -1.5px;
   margin-bottom: 12px;
