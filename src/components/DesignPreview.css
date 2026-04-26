@@ -1,0 +1,16 @@
+.design-preview {
+  width: 100%;
+  max-width: 800px;
+  margin: 20px auto;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: white;
+}
+
+.preview-iframe {
+  width: 100%;
+  min-height: 600px;
+  border: none;
+  display: block;
+}
