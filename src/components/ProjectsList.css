@@ -1,0 +1,92 @@
+.projects-list {
+  padding: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.projects-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.projects-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  opacity: 0.6;
+}
+
+.create-project-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.create-project-btn:hover {
+  background: var(--text);
+  color: var(--bg);
+}
+
+.projects-empty {
+  text-align: center;
+  padding: 24px;
+  opacity: 0.5;
+  font-size: 14px;
+}
+
+.projects-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.project-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.project-item:hover {
+  background: var(--input-bg);
+}
+
+.project-icon {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+.project-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-count {
+  font-size: 12px;
+  opacity: 0.4;
+  background: var(--border);
+  padding: 2px 8px;
+  border-radius: 10px;
+}

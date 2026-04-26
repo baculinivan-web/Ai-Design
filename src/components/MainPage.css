@@ -17,6 +17,15 @@
   justify-content: flex-start;
 }
 
+/* Projects view */
+.app-shell.projects-view {
+  gap: 24px;
+}
+
+.app-shell.projects-view .hero {
+  margin-bottom: 0;
+}
+
 /* ── Hero ── */
 .hero {
   text-align: center;
