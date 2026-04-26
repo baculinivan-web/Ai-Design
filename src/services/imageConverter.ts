@@ -6,6 +6,17 @@ export interface ConvertResult {
   height: number;
 }
 
+function isTransparentCssColor(value: string | null | undefined): boolean {
+  if (!value) return true;
+  const v = value.trim().toLowerCase();
+  if (v === 'transparent') return true;
+  if (v.startsWith('rgba(')) {
+    const match = v.match(/^rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([0-9.]+)\s*\)$/);
+    if (match) return Number(match[1]) === 0;
+  }
+  return false;
+}
+
 async function waitForIframeRender(doc: Document): Promise<void> {
   // Give the browser a tick to construct layout/style.
   await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
@@ -41,8 +52,9 @@ export async function convertHtmlToImage(html: string): Promise<ConvertResult> {
   iframe.style.position = 'fixed';
   iframe.style.left = '0';
   iframe.style.top = '0';
-  iframe.style.width = '1200px';
-  iframe.style.height = '1200px';
+  // Large enough to avoid clipping layouts that rely on viewport size.
+  iframe.style.width = '2048px';
+  iframe.style.height = '2048px';
   iframe.style.border = 'none';
   iframe.style.zIndex = '-1';
   iframe.style.opacity = '0';
@@ -61,26 +73,35 @@ export async function convertHtmlToImage(html: string): Promise<ConvertResult> {
     await waitForIframeRender(doc);
 
     // Find .canvas element
-    const canvasEl = doc.querySelector('.canvas') as HTMLElement;
-    const targetEl = canvasEl || doc.body;
+    const canvasEl = doc.querySelector<HTMLElement>('.canvas');
+    const bodyEl = doc.body;
+    const targetEl = canvasEl ?? bodyEl;
+    if (!targetEl || !bodyEl) throw new Error('Cannot access iframe body');
 
-    // Get dimensions
-    const computedStyle = iframe.contentWindow?.getComputedStyle(targetEl);
-    const width = parseFloat(computedStyle?.width || '800');
-    const height = parseFloat(computedStyle?.height || '800');
+    const win = iframe.contentWindow;
+    if (!win) throw new Error('Cannot access iframe window');
 
-    console.log('Rendering element:', targetEl.className, 'size:', width, 'x', height);
+    // Crop exactly to the design bounds (prevents "shifted" exports when the design is centered in the page).
+    const rect = targetEl.getBoundingClientRect();
+    const x = Math.max(0, rect.left + win.scrollX);
+    const y = Math.max(0, rect.top + win.scrollY);
+    const width = Math.max(1, Math.ceil(rect.width));
+    const height = Math.max(1, Math.ceil(rect.height));
 
-    const canvas = await html2canvas(targetEl, {
+    // Ensure a non-transparent default background when the design relies on body background.
+    const bodyBg = win.getComputedStyle(bodyEl).backgroundColor;
+    const backgroundColor = isTransparentCssColor(bodyBg) ? null : bodyBg;
+
+    const canvas = await html2canvas(bodyEl, {
+      x,
+      y,
       width,
       height,
       scale: 2,
       useCORS: true,
       allowTaint: true,
-      backgroundColor: null,
+      backgroundColor,
       logging: false,
-      windowWidth: width,
-      windowHeight: height,
       // html2canvas has limited CSS support in its default renderer.
       // foreignObjectRendering uses the browser to render the DOM into an SVG foreignObject,
       // which fixes common issues like gradient text via background-clip:text.
