@@ -7,6 +7,7 @@ import { LoadingIndicator } from './LoadingIndicator';
 import { ErrorMessage } from './ErrorMessage';
 import { Download, Copy } from 'lucide-react';
 import './MainPage.css';
+import { extractHtmlTitle, safeDownloadBasename } from '../utils/htmlTitle';
 
 interface DesignItem {
   image: string;
@@ -51,8 +52,7 @@ export function MainPage() {
       setState(prev => ({ ...prev, html: response.html, status: 'converting' }));
 
       const imageResult = await convertHtmlToImage(response.html);
-      const titleMatch = response.html.match(/<title>([^<]*)<\/title>/i);
-      const title = titleMatch ? titleMatch[1].trim() : 'design';
+      const title = extractHtmlTitle(response.html) ?? 'design';
 
       setDesigns(prev => [{ image: imageResult.dataUrl, html: response.html, title }, ...prev]);
 
@@ -68,7 +68,7 @@ export function MainPage() {
 
   const handleDownload = (item: DesignItem) => {
     const link = document.createElement('a');
-    link.download = `${item.title}.png`;
+    link.download = `${safeDownloadBasename(item.title)}.png`;
     link.href = item.image;
     link.click();
   };
