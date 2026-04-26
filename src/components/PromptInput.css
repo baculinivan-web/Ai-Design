@@ -31,6 +31,10 @@
   box-shadow: 0 2px 16px var(--shadow);
 }
 
+.prompt-box.expanded {
+  align-items: flex-end;
+}
+
 .prompt-box:focus-within {
   border-color: var(--accent);
   box-shadow: 0 4px 24px var(--shadow);

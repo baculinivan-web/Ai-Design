@@ -25,12 +25,30 @@ export function PromptInput({
 }: PromptInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showModelPicker, setShowModelPicker] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const baseHeightRef = useRef<number | null>(null);
 
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
+
+    if (baseHeightRef.current == null) {
+      const styles = window.getComputedStyle(el);
+      const lineHeight = Number.parseFloat(styles.lineHeight);
+      const paddingTop = Number.parseFloat(styles.paddingTop);
+      const paddingBottom = Number.parseFloat(styles.paddingBottom);
+
+      const safeLineHeight = Number.isFinite(lineHeight) ? lineHeight : 24;
+      const safePaddingTop = Number.isFinite(paddingTop) ? paddingTop : 0;
+      const safePaddingBottom = Number.isFinite(paddingBottom) ? paddingBottom : 0;
+
+      baseHeightRef.current = safeLineHeight + safePaddingTop + safePaddingBottom;
+    }
+
     el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    const nextHeight = Math.min(el.scrollHeight, 160);
+    el.style.height = `${nextHeight}px`;
+    setIsExpanded(nextHeight > (baseHeightRef.current ?? 36) + 2);
   }, [value]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -44,7 +62,7 @@ export function PromptInput({
 
   return (
     <div className={`prompt-wrapper ${docked ? 'docked' : 'centered'}`}>
-      <div className="prompt-box">
+      <div className={`prompt-box ${isExpanded ? 'expanded' : ''}`}>
         {/* Model picker button */}
         <div className="model-picker-wrapper">
           <button
