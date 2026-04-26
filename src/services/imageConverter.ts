@@ -17,6 +17,45 @@ function isTransparentCssColor(value: string | null | undefined): boolean {
   return false;
 }
 
+function pickCaptureTarget(doc: Document): HTMLElement {
+  const canvasEl = doc.querySelector<HTMLElement>('.canvas');
+  if (canvasEl) return canvasEl;
+
+  const bodyEl = doc.body;
+  if (!bodyEl) throw new Error('Cannot access iframe body');
+
+  const candidates: HTMLElement[] = [];
+  const walker = doc.createTreeWalker(bodyEl, NodeFilter.SHOW_ELEMENT);
+  let visited = 0;
+
+  while (walker.nextNode()) {
+    const el = walker.currentNode as HTMLElement;
+    visited += 1;
+    if (visited > 800) break;
+
+    const tag = el.tagName;
+    if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK' || tag === 'META') continue;
+    if (el === bodyEl || el === doc.documentElement) continue;
+
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 240 || rect.height < 240) continue;
+    candidates.push(el);
+  }
+
+  if (candidates.length === 0) return bodyEl;
+
+  const score = (el: HTMLElement): number => {
+    const rect = el.getBoundingClientRect();
+    const area = rect.width * rect.height;
+    const aspect = rect.width / rect.height;
+    const aspectPenalty = Math.min(1, Math.abs(Math.log(aspect))); // 0 for 1:1, grows as it deviates
+    const squareness = 1 - aspectPenalty; // 1..0
+    return area * (0.35 + 0.65 * squareness);
+  };
+
+  return candidates.reduce((best, el) => (score(el) > score(best) ? el : best));
+}
+
 async function waitForIframeRender(doc: Document): Promise<void> {
   // Give the browser a tick to construct layout/style.
   await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
@@ -50,14 +89,14 @@ async function waitForIframeRender(doc: Document): Promise<void> {
 export async function convertHtmlToImage(html: string): Promise<ConvertResult> {
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
-  iframe.style.left = '0';
+  // Keep it offscreen but "paintable" — opacity/visibility can cause missing text in some renderers.
+  iframe.style.left = '-10000px';
   iframe.style.top = '0';
   // Large enough to avoid clipping layouts that rely on viewport size.
   iframe.style.width = '2048px';
   iframe.style.height = '2048px';
   iframe.style.border = 'none';
   iframe.style.zIndex = '-1';
-  iframe.style.opacity = '0';
   iframe.style.pointerEvents = 'none';
   document.body.appendChild(iframe);
 
@@ -72,14 +111,13 @@ export async function convertHtmlToImage(html: string): Promise<ConvertResult> {
     // Wait for full render (fonts, images, layout)
     await waitForIframeRender(doc);
 
-    // Find .canvas element
-    const canvasEl = doc.querySelector<HTMLElement>('.canvas');
     const bodyEl = doc.body;
-    const targetEl = canvasEl ?? bodyEl;
-    if (!targetEl || !bodyEl) throw new Error('Cannot access iframe body');
+    if (!bodyEl) throw new Error('Cannot access iframe body');
 
     const win = iframe.contentWindow;
     if (!win) throw new Error('Cannot access iframe window');
+
+    const targetEl = pickCaptureTarget(doc);
 
     // Crop exactly to the design bounds (prevents "shifted" exports when the design is centered in the page).
     const rect = targetEl.getBoundingClientRect();
@@ -105,7 +143,8 @@ export async function convertHtmlToImage(html: string): Promise<ConvertResult> {
       // html2canvas has limited CSS support in its default renderer.
       // foreignObjectRendering uses the browser to render the DOM into an SVG foreignObject,
       // which fixes common issues like gradient text via background-clip:text.
-      foreignObjectRendering: true,
+      // But it can also drop text in some setups; computed rendering is more reliable for typography.
+      foreignObjectRendering: false,
       onclone: clonedDoc => {
         // Defensive fix: html2canvas may lose gradient-clipped text when color is transparent.
         // Ensure WebKit text fill + background clip are present in the cloned DOM.
