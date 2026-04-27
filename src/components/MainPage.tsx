@@ -246,7 +246,7 @@ export function MainPage() {
         </div>
         <h1 className="project-title">project: {activeProject.name}</h1>
         <div className="header-right">
-          {/* Empty for now to balance layout */}
+          {/* Empty - moved to top-right actions */}
         </div>
       </div>
 

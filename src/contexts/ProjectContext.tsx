@@ -1,6 +1,7 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { Project, DesignItem } from '../types';
+import { useAuth } from './AuthContext';
 
 interface ProjectContextValue {
   projects: Project[];
@@ -15,30 +16,68 @@ interface ProjectContextValue {
 
 const ProjectContext = createContext<ProjectContextValue | undefined>(undefined);
 
-const STORAGE_KEY = 'mono_projects';
+const LEGACY_STORAGE_KEY = 'mono_projects';
+
+function getStorageKey(uid: string | undefined): string {
+  return uid ? `mono_projects:${uid}` : 'mono_projects:guest';
+}
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
-  const [projects, setProjects] = useState<Project[]>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  });
+  const { user } = useAuth();
+  const storageKey = useMemo(() => getStorageKey(user?.uid), [user?.uid]);
 
+  const [projects, setProjects] = useState<Project[]>([]);
   const [activeProject, setActiveProject] = useState<Project | null>(null);
 
+  // Load projects whenever storageKey changes
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
-  }, [projects]);
+    if (!user) {
+      setProjects([]);
+      setActiveProject(null);
+      return;
+    }
+
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        setProjects(JSON.parse(saved));
+      } catch {
+        setProjects([]);
+      }
+    } else {
+      // Legacy migration: on first load with a signed-in user, 
+      // if the legacy mono_projects key exists, copy it over and remove it.
+      const legacySaved = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacySaved) {
+        try {
+          const legacyProjects = JSON.parse(legacySaved);
+          setProjects(legacyProjects);
+          localStorage.setItem(storageKey, legacySaved);
+          localStorage.removeItem(LEGACY_STORAGE_KEY);
+        } catch {
+          setProjects([]);
+        }
+      } else {
+        setProjects([]);
+      }
+    }
+    setActiveProject(null);
+  }, [storageKey, user]);
+
+  // Persist projects whenever they change
+  useEffect(() => {
+    if (user && projects.length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify(projects));
+    } else if (user && projects.length === 0) {
+      // If we have a user but projects are empty, we still want to save the empty array
+      // to distinguish from the "no projects saved" state (which triggers migration)
+      localStorage.setItem(storageKey, JSON.stringify([]));
+    }
+  }, [projects, storageKey, user]);
 
   const createProject = useCallback((name: string): Project => {
     const project: Project = {

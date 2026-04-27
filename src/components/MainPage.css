@@ -18,6 +18,9 @@
   top: 24px;
   left: 24px;
   z-index: 10;
+  display: flex;
+  gap: 12px;
+  align-items: center;
 }
 
 .center-stage {
@@ -109,6 +112,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.header-right {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
 }
 
 .back-btn, .plus-btn {
