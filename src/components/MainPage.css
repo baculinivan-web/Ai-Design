@@ -4,12 +4,47 @@
   display: flex;
   flex-direction: column;
   transition: all 0.4s ease;
+  position: relative;
 }
 
 /* Centered: empty state — everything in the middle */
 .app-shell.centered {
   justify-content: center;
   align-items: center;
+  padding-bottom: 80px;
+}
+
+.top-left-actions {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  z-index: 10;
+}
+
+.home-projects {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 60px;
+  animation: fadeIn 0.5s ease both 0.2s;
+}
+
+.current-project-label {
+  font-size: 14px;
+  opacity: 0.4;
+  margin-top: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.fullscreen-loading {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  animation: fadeIn 0.2s ease;
 }
 
 /* Docked: gallery fills top, input pinned to bottom */
@@ -17,13 +52,53 @@
   justify-content: flex-start;
 }
 
+/* ── Project Header ── */
+.project-header {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.header-left {
+  display: flex;
+  gap: 12px;
+}
+
+.project-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.back-btn, .plus-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.back-btn:hover, .plus-btn:hover {
+  background: var(--border);
+  transform: translateY(-1px);
+}
+
 /* Projects view */
 .app-shell.projects-view {
   gap: 24px;
-}
-
-.app-shell.projects-view .hero {
-  margin-bottom: 0;
 }
 
 /* ── Hero ── */

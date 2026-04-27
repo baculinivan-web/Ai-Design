@@ -86,17 +86,23 @@ export function MainPage() {
   };
 
   const handleCreateProject = () => {
-    if (projects.length === 0) {
-      setPendingProjectCreate(true);
-      setShowNameModal(true);
-    } else {
-      setShowNameModal(true);
-    }
+    setShowNameModal(true);
   };
 
   const handleProjectNameSubmit = (name: string) => {
-    createProject(name);
-    setPendingProjectCreate(false);
+    const project = createProject(name);
+    setShowNameModal(false);
+    setState({
+      status: 'idle',
+      prompt: '',
+      html: null,
+      image: null,
+      error: null,
+    });
+  };
+
+  const handleFirstPromptSubmit = () => {
+    setShowNameModal(true);
   };
 
   const handleCloseProject = () => {
@@ -113,154 +119,157 @@ export function MainPage() {
   const isLoading = state.status === 'generating' || state.status === 'converting';
   const loadingMsg = state.status === 'generating' ? 'Generating your design...' : 'Converting to image...';
 
-  // First time user - show hero and create first project on prompt submit
-  if (projects.length === 0 && !activeProject) {
+  // Home page - show hero and project list if no project is active OR if active project has no designs
+  if (!activeProject || (activeProject && designs.length === 0)) {
     return (
       <div className="app-shell centered">
+        <div className="top-left-actions">
+          {projects.length > 0 && (
+            <button className="icon-btn" onClick={handleCreateProject} title="New project">
+              <Plus size={24} />
+            </button>
+          )}
+        </div>
+        
         <div className="hero">
           <h1 className="hero-title">mono</h1>
           <p className="hero-sub">Describe anything — get a design instantly</p>
+          {activeProject && <p className="current-project-label">Project: {activeProject.name}</p>}
         </div>
+
         <div className="input-area input-area--centered">
           <PromptInput
             value={state.prompt}
             onChange={(value) => setState(prev => ({ ...prev, prompt: value }))}
-            onSubmit={() => {
-              setPendingProjectCreate(true);
-              setShowNameModal(true);
-            }}
+            onSubmit={activeProject ? handleGenerate : handleFirstPromptSubmit}
             disabled={isLoading}
             docked={false}
             selectedModel={selectedModel}
             onModelChange={setSelectedModel}
           />
         </div>
+
+        {projects.length > 0 && !activeProject && (
+          <div className="home-projects">
+            <ProjectsList 
+              projects={projects} 
+              onSelectProject={selectProject}
+              onCreateProject={handleCreateProject}
+            />
+          </div>
+        )}
+
         <ProjectNameModal
           isOpen={showNameModal}
-          onClose={() => {
-            setShowNameModal(false);
-            setPendingProjectCreate(false);
-          }}
+          onClose={() => setShowNameModal(false)}
           onSubmit={handleProjectNameSubmit}
         />
+
+        {isLoading && (
+          <div className="fullscreen-loading">
+            <LoadingIndicator message={loadingMsg} />
+          </div>
+        )}
       </div>
     );
   }
 
-  // Project view
-  if (activeProject) {
-    return (
-      <div className="app-shell docked">
-        <div className="project-header">
-          <button className="back-btn" onClick={handleCloseProject} title="Close project">
-            <ArrowLeft size={18} />
+  // Gallery view - show designs if active project has them
+  return (
+    <div className="app-shell docked">
+      <div className="project-header">
+        <div className="header-left">
+          <button className="back-btn" onClick={handleCloseProject} title="Back to projects">
+            <ArrowLeft size={20} />
           </button>
-          <h1 className="project-title">{activeProject.name}</h1>
-          <button className="new-design-btn" onClick={() => setState(prev => ({ ...prev, prompt: '' }))}>
-            <Plus size={16} />
-            <span>New</span>
+          <button className="plus-btn" onClick={handleCreateProject} title="New project">
+            <Plus size={20} />
           </button>
         </div>
+        <h1 className="project-title">{activeProject.name}</h1>
+        <div className="header-right">
+          {/* Empty for now to balance layout */}
+        </div>
+      </div>
 
-        <div className="gallery-area">
-          {isLoading && (
-            <div className="gallery-loading">
-              <LoadingIndicator message={loadingMsg} />
-            </div>
-          )}
+      <div className="gallery-area">
+        {isLoading && (
+          <div className="gallery-loading">
+            <LoadingIndicator message={loadingMsg} />
+          </div>
+        )}
 
-          {state.status === 'error' && state.error && (
-            <div className="gallery-error">
-              <ErrorMessage message={state.error} onRetry={handleRetry} />
-            </div>
-          )}
+        {state.status === 'error' && state.error && (
+          <div className="gallery-error">
+            <ErrorMessage message={state.error} onRetry={handleRetry} />
+          </div>
+        )}
 
-          {designs.length > 0 && !isLoading && (
-            <>
-              <div className="gallery-track" ref={galleryRef}>
-                {designs.map((item, i) => (
-                  <div
-                    key={item.id}
-                    className={`gallery-slide ${i === activeDesignIndex ? 'active' : ''}`}
-                    onClick={() => setActiveDesignIndex(i)}
-                  >
-                    <div className="img-wrapper">
-                      <img src={item.image} alt={item.title} className="gallery-img" />
-                      <div className="img-overlay">
-                        <button
-                          className="icon-btn"
-                          onClick={(e) => { e.stopPropagation(); handleDownload(item.image, item.title); }}
-                          title="Download PNG"
-                        >
-                          <Download size={18} />
-                        </button>
-                        <button
-                          className="icon-btn"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(item.html);
-                          }}
-                          title="Copy HTML"
-                        >
-                          <Copy size={18} />
-                        </button>
-                      </div>
+        {designs.length > 0 && !isLoading && (
+          <>
+            <div className="gallery-track" ref={galleryRef}>
+              {designs.map((item, i) => (
+                <div
+                  key={item.id}
+                  className={`gallery-slide ${i === activeDesignIndex ? 'active' : ''}`}
+                  onClick={() => setActiveDesignIndex(i)}
+                >
+                  <div className="img-wrapper">
+                    <img src={item.image} alt={item.title} className="gallery-img" />
+                    <div className="img-overlay">
+                      <button
+                        className="icon-btn"
+                        onClick={(e) => { e.stopPropagation(); handleDownload(item.image, item.title); }}
+                        title="Download PNG"
+                      >
+                        <Download size={18} />
+                      </button>
+                      <button
+                        className="icon-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigator.clipboard.writeText(item.html);
+                        }}
+                        title="Copy HTML"
+                      >
+                        <Copy size={18} />
+                      </button>
                     </div>
                   </div>
+                </div>
+              ))}
+            </div>
+
+            {designs.length > 1 && (
+              <div className="gallery-dots">
+                {designs.map((_, i) => (
+                  <button
+                    key={i}
+                    className={`dot ${i === activeDesignIndex ? 'active' : ''}`}
+                    onClick={() => {
+                      setActiveDesignIndex(i);
+                      galleryRef.current?.scrollTo({ left: i * galleryRef.current.offsetWidth, behavior: 'smooth' });
+                    }}
+                  />
                 ))}
               </div>
-
-              {designs.length > 1 && (
-                <div className="gallery-dots">
-                  {designs.map((_, i) => (
-                    <button
-                      key={i}
-                      className={`dot ${i === activeDesignIndex ? 'active' : ''}`}
-                      onClick={() => {
-                        setActiveDesignIndex(i);
-                        galleryRef.current?.scrollTo({ left: i * galleryRef.current.offsetWidth, behavior: 'smooth' });
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          {designs.length === 0 && !isLoading && (
-            <div className="gallery-empty">
-              <p>Enter a prompt below to create your first design</p>
-            </div>
-          )}
-        </div>
-
-        <div className="input-area input-area--docked">
-          <PromptInput
-            value={state.prompt}
-            onChange={(value) => setState(prev => ({ ...prev, prompt: value }))}
-            onSubmit={handleGenerate}
-            disabled={isLoading}
-            docked={true}
-            selectedModel={selectedModel}
-            onModelChange={setSelectedModel}
-          />
-        </div>
+            )}
+          </>
+        )}
       </div>
-    );
-  }
 
-  // Projects list view
-  return (
-    <div className="app-shell centered projects-view">
-      <div className="hero">
-        <h1 className="hero-title">mono</h1>
-        <p className="hero-sub">Select a project or create a new one</p>
+      <div className="input-area input-area--docked">
+        <PromptInput
+          value={state.prompt}
+          onChange={(value) => setState(prev => ({ ...prev, prompt: value }))}
+          onSubmit={handleGenerate}
+          disabled={isLoading}
+          docked={true}
+          selectedModel={selectedModel}
+          onModelChange={setSelectedModel}
+        />
       </div>
-      <ProjectsList
-        projects={projects}
-        onSelectProject={selectProject}
-        onCreateProject={handleCreateProject}
-      />
+
       <ProjectNameModal
         isOpen={showNameModal}
         onClose={() => setShowNameModal(false)}
