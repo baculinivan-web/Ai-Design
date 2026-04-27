@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, User } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import './AccountMenu.css';
 
 export function AccountMenu() {
