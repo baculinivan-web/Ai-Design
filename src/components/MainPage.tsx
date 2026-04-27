@@ -17,6 +17,7 @@ export function MainPage() {
     projects,
     activeProject,
     createProject,
+    renameProject,
     selectProject,
     closeProject,
     addDesignToProject,
@@ -33,6 +34,8 @@ export function MainPage() {
   const [selectedModel, setSelectedModel] = useState<ModelId>('nvidia/glm-4.7');
   const [activeDesignIndex, setActiveDesignIndex] = useState(0);
   const [showNameModal, setShowNameModal] = useState(false);
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [showProjects, setShowProjects] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   const designs = activeProject?.designs ?? [];
@@ -44,14 +47,24 @@ export function MainPage() {
     }
   }, [designs.length]);
 
-  const handleGenerate = async () => {
-    if (!state.prompt.trim() || !activeProject) return;
+  const resetComposer = () => {
+    setState({
+      status: 'idle',
+      prompt: '',
+      html: null,
+      image: null,
+      error: null,
+    });
+  };
+
+  const generateForProject = async (projectId: string, promptText: string) => {
+    if (!promptText.trim()) return;
 
     setState(prev => ({ ...prev, status: 'generating', error: null }));
 
     try {
       const response = await generateDesign(
-        { prompt: state.prompt, systemPrompt: '' },
+        { prompt: promptText, systemPrompt: '' },
         selectedModel
       );
 
@@ -60,7 +73,7 @@ export function MainPage() {
       const imageResult = await convertHtmlToImage(response.html);
       const title = extractHtmlTitle(response.html) ?? 'design';
 
-      addDesignToProject(activeProject.id, {
+      addDesignToProject(projectId, {
         image: imageResult.dataUrl,
         html: response.html,
         title,
@@ -70,6 +83,11 @@ export function MainPage() {
     } catch (error) {
       setState(prev => ({ ...prev, error: (error as Error).message, status: 'error' }));
     }
+  };
+
+  const handleGenerate = () => {
+    if (!state.prompt.trim() || !activeProject) return;
+    void generateForProject(activeProject.id, state.prompt);
   };
 
   const handleRetry = () => {
@@ -84,41 +102,82 @@ export function MainPage() {
   };
 
   const handleCreateProject = () => {
+    setPendingProjectId(null);
     setShowNameModal(true);
   };
 
   const handleProjectNameSubmit = (name: string) => {
+    if (pendingProjectId) {
+      renameProject(pendingProjectId, name);
+      setPendingProjectId(null);
+      setShowNameModal(false);
+      return;
+    }
+
     createProject(name);
     setShowNameModal(false);
-    setState({
-      status: 'idle',
-      prompt: '',
-      html: null,
-      image: null,
-      error: null,
-    });
+    resetComposer();
   };
 
   const handleFirstPromptSubmit = () => {
+    const promptText = state.prompt.trim();
+    if (!promptText) return;
+
+    const project = createProject('untitled project');
+    setPendingProjectId(project.id);
     setShowNameModal(true);
+    void generateForProject(project.id, promptText);
   };
 
   const handleCloseProject = () => {
     closeProject();
-    setState({
-      status: 'idle',
-      prompt: '',
-      html: null,
-      image: null,
-      error: null,
-    });
+    setPendingProjectId(null);
+    resetComposer();
+  };
+
+  const handleSelectProject = (projectId: string) => {
+    selectProject(projectId);
+    setShowProjects(false);
+    setPendingProjectId(null);
+    setActiveDesignIndex(0);
+    resetComposer();
+  };
+
+  const handleCloseModal = () => {
+    setShowNameModal(false);
+    setPendingProjectId(null);
   };
 
   const isLoading = state.status === 'generating' || state.status === 'converting';
   const loadingMsg = state.status === 'generating' ? 'Generating your design...' : 'Converting to image...';
+  const isCenteredView = !activeProject || designs.length === 0;
+  const visibleProjects = activeProject
+    ? projects.filter((project) => project.id !== activeProject.id)
+    : projects;
+  const centeredSubtitle = activeProject
+    ? `project: ${activeProject.name}`
+    : 'Describe anything - get a design instantly';
+  const projectsShelf = visibleProjects.length > 0 ? (
+    <div className="projects-shelf">
+      <button
+        className="projects-toggle"
+        onClick={() => setShowProjects(prev => !prev)}
+        type="button"
+      >
+        {showProjects ? 'hide all projects' : 'show all projects'}
+      </button>
+      {showProjects && (
+        <div className="projects-shelf-content">
+          <ProjectsList
+            projects={visibleProjects}
+            onSelectProject={handleSelectProject}
+          />
+        </div>
+      )}
+    </div>
+  ) : null;
 
-  // Home page - show hero and project list if no project is active OR if active project has no designs
-  if (!activeProject || (activeProject && designs.length === 0)) {
+  if (isCenteredView) {
     return (
       <div className="app-shell centered">
         <div className="top-left-actions">
@@ -128,45 +187,47 @@ export function MainPage() {
             </button>
           )}
         </div>
-        
-        <div className="hero">
-          <h1 className="hero-title">mono</h1>
-          <p className="hero-sub">Describe anything — get a design instantly</p>
-          {activeProject && <p className="current-project-label">Project: {activeProject.name}</p>}
-        </div>
 
-        <div className="input-area input-area--centered">
-          <PromptInput
-            value={state.prompt}
-            onChange={(value) => setState(prev => ({ ...prev, prompt: value }))}
-            onSubmit={activeProject ? handleGenerate : handleFirstPromptSubmit}
-            disabled={isLoading}
-            docked={false}
-            selectedModel={selectedModel}
-            onModelChange={setSelectedModel}
-          />
-        </div>
+        <div className="center-stage">
+          <div className="hero">
+            <h1 className="hero-title">mono</h1>
+            <p className="hero-sub">{centeredSubtitle}</p>
+          </div>
 
-        {projects.length > 0 && !activeProject && (
-          <div className="home-projects">
-            <ProjectsList 
-              projects={projects} 
-              onSelectProject={selectProject}
+          <div className="input-area input-area--centered">
+            <PromptInput
+              value={state.prompt}
+              onChange={(value) => setState(prev => ({ ...prev, prompt: value }))}
+              onSubmit={activeProject ? handleGenerate : handleFirstPromptSubmit}
+              disabled={isLoading}
+              docked={false}
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
             />
           </div>
-        )}
+
+          {isLoading && (
+            <div className="center-status">
+              <LoadingIndicator message={loadingMsg} />
+            </div>
+          )}
+
+          {state.status === 'error' && state.error && (
+            <div className="center-status">
+              <ErrorMessage message={state.error} onRetry={handleRetry} />
+            </div>
+          )}
+        </div>
+
+        {projectsShelf}
 
         <ProjectNameModal
           isOpen={showNameModal}
-          onClose={() => setShowNameModal(false)}
+          onClose={handleCloseModal}
           onSubmit={handleProjectNameSubmit}
+          defaultName={pendingProjectId && activeProject ? activeProject.name : ''}
+          title={pendingProjectId ? 'Name project' : 'New project'}
         />
-
-        {isLoading && (
-          <div className="fullscreen-loading">
-            <LoadingIndicator message={loadingMsg} />
-          </div>
-        )}
       </div>
     );
   }
@@ -269,9 +330,11 @@ export function MainPage() {
 
       <ProjectNameModal
         isOpen={showNameModal}
-        onClose={() => setShowNameModal(false)}
+        onClose={handleCloseModal}
         onSubmit={handleProjectNameSubmit}
       />
+
+      {projectsShelf}
     </div>
   );
 }

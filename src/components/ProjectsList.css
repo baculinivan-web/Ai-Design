@@ -1,19 +1,19 @@
 .projects-list {
   padding: 0;
-  margin-top: 40px;
+  margin-top: 0;
 }
 
 .projects-header {
-  margin-bottom: 20px;
+  margin-bottom: 14px;
   text-align: center;
 }
 
 .projects-title {
   font-size: 12px;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 2px;
-  opacity: 0.3;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.55;
 }
 
 .projects-grid {

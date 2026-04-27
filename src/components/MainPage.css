@@ -10,8 +10,7 @@
 /* Centered: empty state — everything in the middle */
 .app-shell.centered {
   justify-content: center;
-  align-items: center;
-  padding-bottom: 80px;
+  align-items: stretch;
 }
 
 .top-left-actions {
@@ -21,30 +20,54 @@
   z-index: 10;
 }
 
-.home-projects {
+.center-stage {
+  min-height: 100vh;
   width: 100%;
-  max-width: 600px;
-  margin-top: 60px;
-  animation: fadeIn 0.5s ease both 0.2s;
-}
-
-.current-project-label {
-  font-size: 14px;
-  opacity: 0.4;
-  margin-top: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.fullscreen-loading {
-  position: fixed;
-  inset: 0;
-  background: var(--bg);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  animation: fadeIn 0.2s ease;
+  padding: 24px 16px 164px;
+}
+
+.center-status {
+  width: 100%;
+  max-width: 760px;
+  margin-top: 20px;
+}
+
+.projects-shelf {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 24px 24px;
+  background: linear-gradient(to top, var(--bg) 72%, transparent);
+  z-index: 5;
+}
+
+.projects-toggle {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  padding: 10px 16px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.projects-toggle:hover {
+  background: var(--border);
+  transform: translateY(-1px);
+}
+
+.projects-shelf-content {
+  width: min(100%, 760px);
+  margin-top: 14px;
 }
 
 /* Docked: gallery fills top, input pinned to bottom */
@@ -96,9 +119,10 @@
   transform: translateY(-1px);
 }
 
-/* Projects view */
-.app-shell.projects-view {
-  gap: 24px;
+.app-shell.docked .projects-shelf {
+  position: static;
+  padding: 0 24px 24px;
+  background: transparent;
 }
 
 /* ── Hero ── */
@@ -129,6 +153,7 @@
 .hero-sub {
   font-size: 16px;
   opacity: 0.5;
+  margin: 0;
 }
 
 /* ── Gallery area ── */
@@ -310,17 +335,14 @@
 }
 
 .input-area--centered {
-  /* stays in flow, centered by parent flex */
+  max-width: 760px;
+  padding: 0 16px;
 }
 
 .input-area--docked {
-  position: sticky;
-  bottom: 0;
   background: var(--bg);
   border-top: none;
   padding: 14px 0 18px;
-  backdrop-filter: blur(12px);
-  z-index: 10;
 }
 
 .input-inner {
@@ -364,6 +386,14 @@
 
 /* ── Responsive ── */
 @media (max-width: 600px) {
+  .center-stage {
+    padding: 24px 12px 156px;
+  }
+
+  .projects-shelf {
+    padding: 16px 12px 18px;
+  }
+
   .gallery-slide {
     padding: 0 12px;
   }

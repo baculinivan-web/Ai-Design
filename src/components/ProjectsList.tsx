@@ -10,7 +10,7 @@ export function ProjectsList({ projects, onSelectProject }: ProjectsListProps) {
   return (
     <div className="projects-list">
       <div className="projects-header">
-        <h2 className="projects-title">Your Projects</h2>
+        <h2 className="projects-title">your projects</h2>
       </div>
       
       {projects.length === 0 ? (
