@@ -157,7 +157,7 @@ export function MainPage() {
   const centeredSubtitle = activeProject
     ? `project: ${activeProject.name}`
     : 'Describe anything - get a design instantly';
-  const projectsShelf = visibleProjects.length > 0 ? (
+  const projectsShelf = visibleProjects.length > 0 && isCenteredView ? (
     <div className="projects-shelf">
       <button
         className="projects-toggle"
@@ -341,8 +341,6 @@ export function MainPage() {
         defaultName={pendingProjectId && activeProject ? activeProject.name : ''}
         title={pendingProjectId ? 'Name project' : 'New project'}
       />
-
-      {projectsShelf}
     </div>
   );
 }

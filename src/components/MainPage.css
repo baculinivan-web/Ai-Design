@@ -68,6 +68,18 @@
 .projects-shelf-content {
   width: min(100%, 760px);
   margin-top: 14px;
+  animation: slideUpFade 0.3s ease-out both;
+}
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Docked: gallery fills top, input pinned to bottom */
@@ -81,7 +93,6 @@
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
   background: var(--bg);
 }
 
