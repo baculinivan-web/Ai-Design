@@ -1,14 +1,12 @@
-import { Plus, Folder } from 'lucide-react';
 import type { Project } from '../types';
 import './ProjectsList.css';
 
 interface ProjectsListProps {
   projects: Project[];
   onSelectProject: (id: string) => void;
-  onCreateProject: () => void;
 }
 
-export function ProjectsList({ projects, onSelectProject, onCreateProject }: ProjectsListProps) {
+export function ProjectsList({ projects, onSelectProject }: ProjectsListProps) {
   return (
     <div className="projects-list">
       <div className="projects-header">

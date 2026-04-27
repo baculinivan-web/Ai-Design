@@ -33,11 +33,9 @@ export function MainPage() {
   const [selectedModel, setSelectedModel] = useState<ModelId>('nvidia/glm-4.7');
   const [activeDesignIndex, setActiveDesignIndex] = useState(0);
   const [showNameModal, setShowNameModal] = useState(false);
-  const [pendingProjectCreate, setPendingProjectCreate] = useState(false);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   const designs = activeProject?.designs ?? [];
-  const docked = !!activeProject;
 
   useEffect(() => {
     if (galleryRef.current && designs.length > 0) {
@@ -90,7 +88,7 @@ export function MainPage() {
   };
 
   const handleProjectNameSubmit = (name: string) => {
-    const project = createProject(name);
+    createProject(name);
     setShowNameModal(false);
     setState({
       status: 'idle',
@@ -154,7 +152,6 @@ export function MainPage() {
             <ProjectsList 
               projects={projects} 
               onSelectProject={selectProject}
-              onCreateProject={handleCreateProject}
             />
           </div>
         )}
