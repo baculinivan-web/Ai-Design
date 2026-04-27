@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import type { DesignState } from '../types';
-import { generateDesign, type ModelId } from '../services/api';
+import { generateDesign, fetchAvailableModels, type ModelId, type ModelInfo } from '../services/api';
 import { convertHtmlToImage } from '../services/imageConverter';
 import { useProjects } from '../contexts/ProjectContext';
 import { PromptInput } from './PromptInput';
@@ -32,6 +32,7 @@ export function MainPage() {
   });
 
   const [selectedModel, setSelectedModel] = useState<ModelId>('nvidia/glm-4.7');
+  const [models, setModels] = useState<ModelInfo[]>([]);
   const [activeDesignIndex, setActiveDesignIndex] = useState(0);
   const [showNameModal, setShowNameModal] = useState(false);
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
@@ -39,6 +40,27 @@ export function MainPage() {
   const galleryRef = useRef<HTMLDivElement>(null);
 
   const designs = activeProject?.designs ?? [];
+
+  useEffect(() => {
+    void fetchAvailableModels().then((fetchedModels) => {
+      setModels(fetchedModels);
+      if (fetchedModels.length > 0) {
+        // If current selection is empty or not in the new list, pick a new one
+        setSelectedModel(prev => {
+          // If previous selection exists in new list, keep it
+          if (prev && fetchedModels.some(m => m.id === prev)) {
+            return prev;
+          }
+          // Otherwise, prefer the legacy default if it's available
+          if (fetchedModels.some(m => m.id === 'nvidia/glm-4.7')) {
+            return 'nvidia/glm-4.7';
+          }
+          // Finally, fall back to the first model in the list
+          return fetchedModels[0].id;
+        });
+      }
+    });
+  }, []);
 
   useEffect(() => {
     if (galleryRef.current && designs.length > 0) {
@@ -86,7 +108,7 @@ export function MainPage() {
   };
 
   const handleGenerate = () => {
-    if (!state.prompt.trim() || !activeProject) return;
+    if (!state.prompt.trim() || !activeProject || !selectedModel) return;
     void generateForProject(activeProject.id, state.prompt);
   };
 
@@ -121,7 +143,7 @@ export function MainPage() {
 
   const handleFirstPromptSubmit = () => {
     const promptText = state.prompt.trim();
-    if (!promptText) return;
+    if (!promptText || !selectedModel) return;
 
     const project = createProject('untitled project');
     setPendingProjectId(project.id);
@@ -149,6 +171,7 @@ export function MainPage() {
   };
 
   const isLoading = state.status === 'generating' || state.status === 'converting';
+  const isInputDisabled = isLoading || !selectedModel;
   const loadingMsg = state.status === 'generating' ? 'Generating your design...' : 'Converting to image...';
   const isCenteredView = !activeProject;
   const visibleProjects = activeProject
@@ -199,10 +222,11 @@ export function MainPage() {
               value={state.prompt}
               onChange={(value) => setState(prev => ({ ...prev, prompt: value }))}
               onSubmit={activeProject ? handleGenerate : handleFirstPromptSubmit}
-              disabled={isLoading}
+              disabled={isInputDisabled}
               docked={false}
               selectedModel={selectedModel}
               onModelChange={setSelectedModel}
+              models={models}
             />
           </div>
 
@@ -327,10 +351,11 @@ export function MainPage() {
           value={state.prompt}
           onChange={(value) => setState(prev => ({ ...prev, prompt: value }))}
           onSubmit={handleGenerate}
-          disabled={isLoading}
+          disabled={isInputDisabled}
           docked={true}
           selectedModel={selectedModel}
           onModelChange={setSelectedModel}
+          models={models}
         />
       </div>
 

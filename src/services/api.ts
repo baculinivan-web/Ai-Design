@@ -2,6 +2,13 @@ import type { GenerateRequest, GenerateResponse, AppError } from '../types';
 
 // Use a relative URL so it works on Cloudflare Pages (Functions) and locally.
 const CLAWROUTER_URL = '/v1/chat/completions';
+const MODELS_URL = '/v1/models';
+
+export type ModelInfo = {
+  id: string;
+  name: string;
+  provider: string;
+};
 
 export const FREE_MODELS = [
   { id: 'nvidia/gpt-oss-120b', name: 'GPT-OSS 120B' },
@@ -14,7 +21,20 @@ export const FREE_MODELS = [
   { id: 'nvidia/mistral-small-4-119b', name: 'Mistral Small 4 119B' },
 ] as const;
 
-export type ModelId = typeof FREE_MODELS[number]['id'];
+export type ModelId = string;
+
+export async function fetchAvailableModels(): Promise<ModelInfo[]> {
+  try {
+    const response = await fetch(MODELS_URL);
+    if (!response.ok) throw new Error('Failed to fetch models');
+    const data = await response.json();
+    return data.models || [];
+  } catch (error) {
+    console.error('Error fetching models:', error);
+    // Fallback to FREE_MODELS if API fails
+    return FREE_MODELS.map(m => ({ ...m, provider: 'blockrun' }));
+  }
+}
 
 const SYSTEM_PROMPT = `You are a world-class graphic designer specializing in bold, eye-catching poster designs. Create stunning HTML/CSS designs that POP.
 

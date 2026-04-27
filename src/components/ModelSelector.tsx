@@ -1,12 +1,22 @@
-import { FREE_MODELS, type ModelId } from '../services/api';
+import { type ModelId, type ModelInfo } from '../services/api';
 import './ModelSelector.css';
 
 interface ModelSelectorProps {
   selectedModel: ModelId;
   onModelChange: (model: ModelId) => void;
+  models: ModelInfo[];
 }
 
-export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorProps) {
+export function ModelSelector({ selectedModel, onModelChange, models }: ModelSelectorProps) {
+  // Group models by provider
+  const groupedModels = models.reduce((acc, model) => {
+    if (!acc[model.provider]) {
+      acc[model.provider] = [];
+    }
+    acc[model.provider].push(model);
+    return acc;
+  }, {} as Record<string, ModelInfo[]>);
+
   return (
     <div className="model-selector">
       <label htmlFor="model-select">Model:</label>
@@ -16,10 +26,14 @@ export function ModelSelector({ selectedModel, onModelChange }: ModelSelectorPro
         onChange={(e) => onModelChange(e.target.value as ModelId)}
         className="model-select"
       >
-        {FREE_MODELS.map((model) => (
-          <option key={model.id} value={model.id}>
-            {model.name}
-          </option>
+        {Object.entries(groupedModels).map(([provider, providerModels]) => (
+          <optgroup key={provider} label={provider}>
+            {providerModels.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.name}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
     </div>

@@ -2,6 +2,14 @@ export interface Env {
   BLOCKRUN_WALLET_KEY: string;
   ALLOWED_ORIGINS?: string;
 
+  // Optional: custom AI providers and models
+  PROVIDERS_CONFIG?: string; // JSON: { [name]: { base_url, api_key_env } }
+  MODELS_CONFIG?: string;    // JSON: Array<{ id, name, provider }>
+
+  // Specific provider keys (referenced via api_key_env in PROVIDERS_CONFIG)
+  OPENROUTER_API_KEY?: string;
+  OPENAI_API_KEY?: string;
+
   // Optional: default model when request asks for auto routing.
   // Example: "deepseek/deepseek-chat"
   DEFAULT_MODEL?: string;
@@ -31,6 +39,27 @@ function getCorsHeaders(request: Request, env: Env): Headers {
   headers.set('Access-Control-Max-Age', '86400');
   return headers;
 }
+
+function parseProvidersConfig(env: Env): Record<string, any> {
+  try {
+    return env.PROVIDERS_CONFIG ? JSON.parse(env.PROVIDERS_CONFIG) : {};
+  } catch {
+    return {};
+  }
+}
+
+function parseModelsConfig(env: Env): any[] {
+  try {
+    return env.MODELS_CONFIG ? JSON.parse(env.MODELS_CONFIG) : [];
+  } catch {
+    return [];
+  }
+}
+
+function findCustomModel(modelId: string, modelsConfig: any[]): any {
+  return modelsConfig.find((m) => m.id === modelId) || null;
+}
+
 
 function extractTextFromMessages(messages: any): string {
   if (!Array.isArray(messages)) return '';
@@ -132,15 +161,64 @@ export const onRequest = async (context: any) => {
     return new Response('Method Not Allowed', { status: 405, headers });
   }
 
-  if (!env.BLOCKRUN_WALLET_KEY) {
-    return new Response('Missing BLOCKRUN_WALLET_KEY', { status: 500 });
-  }
-
   let payload: any;
   try {
     payload = await request.json();
   } catch {
     return new Response('Invalid JSON body', { status: 400, headers: cors });
+  }
+
+  const modelsConfig = parseModelsConfig(env);
+  const providersConfig = parseProvidersConfig(env);
+  const customModel = payload.model ? findCustomModel(payload.model, modelsConfig) : null;
+
+  if (customModel) {
+    const provider = providersConfig[customModel.provider];
+    if (!provider) {
+      return new Response(`Missing provider config for ${customModel.provider}`, { status: 500, headers: cors });
+    }
+
+    const apiKey = (env as any)[provider.api_key_env];
+    if (!apiKey) {
+      return new Response(`Missing API key for provider ${customModel.provider}`, { status: 500, headers: cors });
+    }
+
+    let baseUrl = provider.base_url;
+    // Normalize base_url: ensure it includes /v1 if it looks like a root OpenAI/OpenRouter URL
+    if (baseUrl.includes('api.openai.com') || baseUrl.includes('openrouter.ai')) {
+      if (!baseUrl.includes('/v1')) {
+        baseUrl = baseUrl.endsWith('/') ? `${baseUrl}v1` : `${baseUrl}/v1`;
+      }
+    }
+
+    if (!baseUrl.endsWith('/chat/completions')) {
+      baseUrl = baseUrl.endsWith('/') ? `${baseUrl}chat/completions` : `${baseUrl}/chat/completions`;
+    }
+
+    const upstream = await fetch(baseUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const headers = new Headers(upstream.headers);
+    for (const [k, v] of cors.entries()) headers.set(k, v);
+    headers.set('x-router-provider', customModel.provider);
+    headers.set('x-router-model', payload.model);
+    headers.set('x-router-reason', 'custom');
+
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers,
+    });
+  }
+
+  // Fallback to Blockrun logic
+  if (!env.BLOCKRUN_WALLET_KEY) {
+    return new Response('Missing BLOCKRUN_WALLET_KEY', { status: 500, headers: cors });
   }
 
   const { model, reason } = pickModel(payload, env);
@@ -157,6 +235,7 @@ export const onRequest = async (context: any) => {
 
   const headers = new Headers(upstream.headers);
   for (const [k, v] of cors.entries()) headers.set(k, v);
+  headers.set('x-router-provider', 'blockrun');
   headers.set('x-router-model', model);
   headers.set('x-router-reason', reason);
 

@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { Send, Bot } from 'lucide-react';
-import type { ModelId } from '../services/api';
-import { FREE_MODELS } from '../services/api';
+import type { ModelId, ModelInfo } from '../services/api';
 import './PromptInput.css';
 
 interface PromptInputProps {
@@ -12,6 +11,7 @@ interface PromptInputProps {
   docked: boolean;
   selectedModel: ModelId;
   onModelChange: (model: ModelId) => void;
+  models: ModelInfo[];
 }
 
 export function PromptInput({ 
@@ -21,7 +21,8 @@ export function PromptInput({
   disabled, 
   docked,
   selectedModel,
-  onModelChange 
+  onModelChange,
+  models
 }: PromptInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [showModelPicker, setShowModelPicker] = useState(false);
@@ -74,20 +75,32 @@ export function PromptInput({
           </button>
           {showModelPicker && (
             <div className="model-dropdown">
-              {FREE_MODELS.map((model) => (
-                <button
-                  key={model.id}
-                  className={`model-option ${selectedModel === model.id ? 'active' : ''}`}
-                  onClick={() => {
-                    onModelChange(model.id);
-                    setShowModelPicker(false);
-                  }}
-                >
-                  {model.name}
-                </button>
+              {Object.entries(
+                models.reduce((acc, model) => {
+                  if (!acc[model.provider]) acc[model.provider] = [];
+                  acc[model.provider].push(model);
+                  return acc;
+                }, {} as Record<string, ModelInfo[]>)
+              ).map(([provider, providerModels]) => (
+                <div key={provider} className="model-group">
+                  <div className="model-group-label">{provider}</div>
+                  {providerModels.map((model) => (
+                    <button
+                      key={model.id}
+                      className={`model-option ${selectedModel === model.id ? 'active' : ''}`}
+                      onClick={() => {
+                        onModelChange(model.id);
+                        setShowModelPicker(false);
+                      }}
+                    >
+                      {model.name}
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           )}
+
         </div>
 
         <textarea

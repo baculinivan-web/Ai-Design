@@ -107,6 +107,25 @@
   color: var(--bg);
 }
 
+.model-group {
+  margin-bottom: 8px;
+}
+
+.model-group:last-child {
+  margin-bottom: 0;
+}
+
+.model-group-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text);
+  opacity: 0.4;
+  padding: 4px 12px;
+  margin-bottom: 2px;
+}
+
 /* Textarea */
 .prompt-textarea {
   flex: 1;
