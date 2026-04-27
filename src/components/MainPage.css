@@ -167,11 +167,19 @@
 }
 
 .gallery-loading,
-.gallery-error {
+.gallery-error,
+.gallery-empty {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  text-align: center;
+  padding: 40px;
+}
+
+.gallery-empty p {
+  opacity: 0.5;
+  font-size: 15px;
 }
 
 .gallery-track {

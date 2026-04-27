@@ -150,7 +150,7 @@ export function MainPage() {
 
   const isLoading = state.status === 'generating' || state.status === 'converting';
   const loadingMsg = state.status === 'generating' ? 'Generating your design...' : 'Converting to image...';
-  const isCenteredView = !activeProject || designs.length === 0;
+  const isCenteredView = !activeProject;
   const visibleProjects = activeProject
     ? projects.filter((project) => project.id !== activeProject.id)
     : projects;
@@ -225,7 +225,7 @@ export function MainPage() {
           isOpen={showNameModal}
           onClose={handleCloseModal}
           onSubmit={handleProjectNameSubmit}
-          defaultName={pendingProjectId && activeProject ? activeProject.name : ''}
+          defaultName=""
           title={pendingProjectId ? 'Name project' : 'New project'}
         />
       </div>
@@ -244,7 +244,7 @@ export function MainPage() {
             <Plus size={20} />
           </button>
         </div>
-        <h1 className="project-title">{activeProject.name}</h1>
+        <h1 className="project-title">project: {activeProject.name}</h1>
         <div className="header-right">
           {/* Empty for now to balance layout */}
         </div>
@@ -263,7 +263,13 @@ export function MainPage() {
           </div>
         )}
 
-        {designs.length > 0 && !isLoading && (
+        {designs.length === 0 && !isLoading && (
+          <div className="gallery-empty">
+            <p>No designs yet. Describe something to get started!</p>
+          </div>
+        )}
+
+        {designs.length > 0 && (
           <>
             <div className="gallery-track" ref={galleryRef}>
               {designs.map((item, i) => (
@@ -332,6 +338,8 @@ export function MainPage() {
         isOpen={showNameModal}
         onClose={handleCloseModal}
         onSubmit={handleProjectNameSubmit}
+        defaultName={pendingProjectId && activeProject ? activeProject.name : ''}
+        title={pendingProjectId ? 'Name project' : 'New project'}
       />
 
       {projectsShelf}
