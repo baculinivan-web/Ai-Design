@@ -29,7 +29,7 @@ interface ProjectContextValue {
 const ProjectContext = createContext<ProjectContextValue | undefined>(undefined);
 
 function generateId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).substr(2);
+  return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
@@ -51,9 +51,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setProjectsLoading(true);
+    // Only set loading to true if we don't have projects yet
+    // This avoids flickering on every small change or re-subscription
+    if (projects.length === 0) {
+      setProjectsLoading(true);
+    }
+
     const projectsRef = collection(db, 'users', user.uid, 'projects');
     const q = query(projectsRef, orderBy('createdAt', 'desc'));
+
+    let isInitialLoad = true;
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const projectsList = snapshot.docs.map(doc => ({
@@ -62,7 +69,11 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
       })) as Project[];
 
       setProjects(projectsList);
-      setProjectsLoading(false);
+      
+      if (isInitialLoad) {
+        setProjectsLoading(false);
+        isInitialLoad = false;
+      }
 
       // Migration: if Firestore is empty, check localStorage
       if (snapshot.empty) {
@@ -72,8 +83,8 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
           try {
             const localProjects = JSON.parse(saved) as Project[];
             if (localProjects.length > 0) {
-              setProjectsLoading(true);
-              // Migrate each project to Firestore
+              // Migrate each project to Firestore in the background
+              // We don't set projectsLoading(true) here to avoid UI flickering
               for (const project of localProjects) {
                 await setDoc(doc(db, 'users', user.uid, 'projects', project.id), project);
               }
@@ -82,8 +93,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
             }
           } catch (error) {
             console.error('Failed to migrate projects from localStorage:', error);
-          } finally {
-            setProjectsLoading(false);
           }
         }
       }
@@ -93,7 +102,7 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     });
 
     return () => unsubscribe();
-  }, [user]);
+  }, [user?.uid]); // Use user.uid for better stability
 
   const createProject = useCallback(async (name: string) => {
     if (!user) return;
