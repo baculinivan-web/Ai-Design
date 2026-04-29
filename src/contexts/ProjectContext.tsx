@@ -1,26 +1,32 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { Project, DesignItem } from '../types';
 import { useAuth } from './AuthContext';
+import { 
+  collection, 
+  doc, 
+  updateDoc, 
+  deleteDoc, 
+  setDoc, 
+  onSnapshot, 
+  query, 
+  orderBy
+} from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 interface ProjectContextValue {
   projects: Project[];
   activeProject: Project | null;
-  createProject: (name: string) => Project;
+  projectsLoading: boolean;
+  createProject: (name: string) => Promise<string | undefined>;
   selectProject: (id: string) => void;
   closeProject: () => void;
-  addDesignToProject: (projectId: string, design: Omit<DesignItem, 'id' | 'createdAt'>) => void;
-  deleteProject: (id: string) => void;
-  renameProject: (id: string, name: string) => void;
+  addDesignToProject: (projectId: string, design: Omit<DesignItem, 'id' | 'createdAt'>) => Promise<void>;
+  deleteProject: (id: string) => Promise<void>;
+  renameProject: (id: string, name: string) => Promise<void>;
 }
 
 const ProjectContext = createContext<ProjectContextValue | undefined>(undefined);
-
-const LEGACY_STORAGE_KEY = 'mono_projects';
-
-function getStorageKey(uid: string | undefined): string {
-  return uid ? `mono_projects:${uid}` : 'mono_projects:guest';
-}
 
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
@@ -28,131 +34,135 @@ function generateId(): string {
 
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const storageKey = useMemo(() => getStorageKey(user?.uid), [user?.uid]);
 
   const [projects, setProjects] = useState<Project[]>([]);
-  const [activeProject, setActiveProject] = useState<Project | null>(null);
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [projectsLoading, setProjectsLoading] = useState(true);
 
-  // Load projects whenever storageKey changes
+  // Active project is derived from the projects list to ensure reactivity
+  const activeProject = projects.find(p => p.id === activeProjectId) || null;
+
+  // Real-time subscription to user's projects
   useEffect(() => {
     if (!user) {
       setProjects([]);
-      setActiveProject(null);
+      setActiveProjectId(null);
+      setProjectsLoading(false);
       return;
     }
 
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        setProjects(JSON.parse(saved));
-      } catch {
-        setProjects([]);
-      }
-    } else {
-      // Legacy migration: on first load with a signed-in user, 
-      // if the legacy mono_projects key exists, copy it over and remove it.
-      const legacySaved = localStorage.getItem(LEGACY_STORAGE_KEY);
-      if (legacySaved) {
-        try {
-          const legacyProjects = JSON.parse(legacySaved);
-          setProjects(legacyProjects);
-          localStorage.setItem(storageKey, legacySaved);
-          localStorage.removeItem(LEGACY_STORAGE_KEY);
-        } catch {
-          setProjects([]);
+    setProjectsLoading(true);
+    const projectsRef = collection(db, 'users', user.uid, 'projects');
+    const q = query(projectsRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const projectsList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as Project[];
+
+      setProjects(projectsList);
+      setProjectsLoading(false);
+
+      // Migration: if Firestore is empty, check localStorage
+      if (snapshot.empty) {
+        const localKey = `mono_projects:${user.uid}`;
+        const saved = localStorage.getItem(localKey);
+        if (saved) {
+          try {
+            const localProjects = JSON.parse(saved) as Project[];
+            if (localProjects.length > 0) {
+              setProjectsLoading(true);
+              // Migrate each project to Firestore
+              for (const project of localProjects) {
+                await setDoc(doc(db, 'users', user.uid, 'projects', project.id), project);
+              }
+              // Remove from localStorage after successful migration
+              localStorage.removeItem(localKey);
+            }
+          } catch (error) {
+            console.error('Failed to migrate projects from localStorage:', error);
+          } finally {
+            setProjectsLoading(false);
+          }
         }
-      } else {
-        setProjects([]);
       }
-    }
-    setActiveProject(null);
-  }, [storageKey, user]);
+    }, (error) => {
+      console.error('Firestore subscription error:', error);
+      setProjectsLoading(false);
+    });
 
-  // Persist projects whenever they change
-  useEffect(() => {
-    if (user && projects.length > 0) {
-      localStorage.setItem(storageKey, JSON.stringify(projects));
-    } else if (user && projects.length === 0) {
-      // If we have a user but projects are empty, we still want to save the empty array
-      // to distinguish from the "no projects saved" state (which triggers migration)
-      localStorage.setItem(storageKey, JSON.stringify([]));
-    }
-  }, [projects, storageKey, user]);
+    return () => unsubscribe();
+  }, [user]);
 
-  const createProject = useCallback((name: string): Project => {
+  const createProject = useCallback(async (name: string) => {
+    if (!user) return;
+
+    const projectId = generateId();
     const project: Project = {
-      id: generateId(),
+      id: projectId,
       name,
       designs: [],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    setProjects(prev => [project, ...prev]);
-    setActiveProject(project);
-    return project;
-  }, []);
+
+    await setDoc(doc(db, 'users', user.uid, 'projects', projectId), project);
+    setActiveProjectId(projectId);
+    return projectId;
+  }, [user]);
 
   const selectProject = useCallback((id: string) => {
-    const project = projects.find(p => p.id === id);
-    if (project) {
-      setActiveProject(project);
-    }
-  }, [projects]);
-
-  const closeProject = useCallback(() => {
-    setActiveProject(null);
+    setActiveProjectId(id);
   }, []);
 
-  const addDesignToProject = useCallback((projectId: string, design: Omit<DesignItem, 'id' | 'createdAt'>) => {
+  const closeProject = useCallback(() => {
+    setActiveProjectId(null);
+  }, []);
+
+  const addDesignToProject = useCallback(async (projectId: string, design: Omit<DesignItem, 'id' | 'createdAt'>) => {
+    if (!user) return;
+
     const newDesign: DesignItem = {
       ...design,
       id: generateId(),
       createdAt: Date.now(),
     };
 
-    setProjects(prev => prev.map(p => {
-      if (p.id === projectId) {
-        return {
-          ...p,
-          designs: [newDesign, ...p.designs],
-          updatedAt: Date.now(),
-        };
-      }
-      return p;
-    }));
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
 
-    setActiveProject(prev => {
-      if (prev && prev.id === projectId) {
-        return {
-          ...prev,
-          designs: [newDesign, ...prev.designs],
-          updatedAt: Date.now(),
-        };
-      }
-      return prev;
+    const updatedDesigns = [newDesign, ...project.designs];
+    
+    await updateDoc(doc(db, 'users', user.uid, 'projects', projectId), {
+      designs: updatedDesigns,
+      updatedAt: Date.now(),
     });
-  }, []);
+  }, [user, projects]);
 
-  const deleteProject = useCallback((id: string) => {
-    setProjects(prev => prev.filter(p => p.id !== id));
-    if (activeProject?.id === id) {
-      setActiveProject(null);
+  const deleteProject = useCallback(async (id: string) => {
+    if (!user) return;
+
+    await deleteDoc(doc(db, 'users', user.uid, 'projects', id));
+    if (activeProjectId === id) {
+      setActiveProjectId(null);
     }
-  }, [activeProject]);
+  }, [user, activeProjectId]);
 
-  const renameProject = useCallback((id: string, name: string) => {
-    setProjects(prev => prev.map(p => {
-      if (p.id === id) {
-        return { ...p, name, updatedAt: Date.now() };
-      }
-      return p;
-    }));
-  }, []);
+  const renameProject = useCallback(async (id: string, name: string) => {
+    if (!user) return;
+
+    await updateDoc(doc(db, 'users', user.uid, 'projects', id), {
+      name,
+      updatedAt: Date.now(),
+    });
+  }, [user]);
 
   return (
     <ProjectContext.Provider value={{
       projects,
       activeProject,
+      projectsLoading,
       createProject,
       selectProject,
       closeProject,

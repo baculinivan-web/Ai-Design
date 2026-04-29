@@ -41,16 +41,33 @@ function getCorsHeaders(request: Request, env: Env): Headers {
 }
 
 function parseProvidersConfig(env: Env): Record<string, any> {
+  let config = env.PROVIDERS_CONFIG;
+  if (!config) return {};
+
+  config = config.trim();
+  if ((config.startsWith("'") && config.endsWith("'")) || (config.startsWith('"') && config.endsWith('"'))) {
+    config = config.slice(1, -1);
+  }
+
   try {
-    return env.PROVIDERS_CONFIG ? JSON.parse(env.PROVIDERS_CONFIG) : {};
+    return JSON.parse(config);
   } catch {
     return {};
   }
 }
 
 function parseModelsConfig(env: Env): any[] {
+  let config = env.MODELS_CONFIG;
+  if (!config) return [];
+
+  config = config.trim();
+  if ((config.startsWith("'") && config.endsWith("'")) || (config.startsWith('"') && config.endsWith('"'))) {
+    config = config.slice(1, -1);
+  }
+
   try {
-    return env.MODELS_CONFIG ? JSON.parse(env.MODELS_CONFIG) : [];
+    const parsed = JSON.parse(config);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }

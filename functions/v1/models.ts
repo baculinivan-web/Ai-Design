@@ -37,9 +37,19 @@ function getCorsHeaders(request: Request, env: Env): Headers {
 }
 
 function parseModelsConfig(env: Env): any[] {
+  let config = env.MODELS_CONFIG;
+  if (!config) return [];
+  
+  // Remove accidental outer quotes if user copied them from examples
+  config = config.trim();
+  if ((config.startsWith("'") && config.endsWith("'")) || (config.startsWith('"') && config.endsWith('"'))) {
+    config = config.slice(1, -1);
+  }
+
   try {
-    return env.MODELS_CONFIG ? JSON.parse(env.MODELS_CONFIG) : [];
-  } catch {
+    const parsed = JSON.parse(config);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
     return [];
   }
 }

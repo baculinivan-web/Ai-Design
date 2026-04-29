@@ -16,6 +16,7 @@ export function MainPage() {
   const {
     projects,
     activeProject,
+    projectsLoading,
     createProject,
     renameProject,
     selectProject,
@@ -95,7 +96,7 @@ export function MainPage() {
       const imageResult = await convertHtmlToImage(response.html);
       const title = extractHtmlTitle(response.html) ?? 'design';
 
-      addDesignToProject(projectId, {
+      await addDesignToProject(projectId, {
         image: imageResult.dataUrl,
         html: response.html,
         title,
@@ -130,25 +131,27 @@ export function MainPage() {
 
   const handleProjectNameSubmit = (name: string) => {
     if (pendingProjectId) {
-      renameProject(pendingProjectId, name);
+      void renameProject(pendingProjectId, name);
       setPendingProjectId(null);
       setShowNameModal(false);
       return;
     }
 
-    createProject(name);
+    void createProject(name);
     setShowNameModal(false);
     resetComposer();
   };
 
-  const handleFirstPromptSubmit = () => {
+  const handleFirstPromptSubmit = async () => {
     const promptText = state.prompt.trim();
     if (!promptText || !selectedModel) return;
 
-    const project = createProject('untitled project');
-    setPendingProjectId(project.id);
-    setShowNameModal(true);
-    void generateForProject(project.id, promptText);
+    const projectId = await createProject('untitled project');
+    if (projectId) {
+      setPendingProjectId(projectId);
+      setShowNameModal(true);
+      void generateForProject(projectId, promptText);
+    }
   };
 
   const handleCloseProject = () => {
@@ -199,6 +202,16 @@ export function MainPage() {
       )}
     </div>
   ) : null;
+
+  if (projectsLoading) {
+    return (
+      <div className="app-shell centered">
+        <div className="center-stage">
+          <LoadingIndicator message="Loading projects..." />
+        </div>
+      </div>
+    );
+  }
 
   if (isCenteredView) {
     return (
