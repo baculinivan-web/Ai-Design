@@ -59,10 +59,14 @@ Set these environment variables in your Cloudflare Pages dashboard:
   "openrouter": {
     "base_url": "https://openrouter.ai/api/v1",
     "api_key_env": "OPENROUTER_API_KEY"
+  },
+  "custom": {
+    "base_url": "http://46.226.165.141:20128/v1",
+    "api_key_env": "CUSTOM_API_KEY"
   }
 }
 ```
-*Note: For `api.openai.com` and `openrouter.ai`, the system automatically appends `/v1` and `/chat/completions` if they are missing from the `base_url`.*
+*Note: For `api.openai.com` and `openrouter.ai`, the system automatically appends `/v1` and `/chat/completions` if they are missing from the `base_url`. For custom HTTP endpoints (without HTTPS), Cloudflare Functions will proxy the requests securely.*
 
 
 **`MODELS_CONFIG`** (JSON):
@@ -77,6 +81,11 @@ Set these environment variables in your Cloudflare Pages dashboard:
     "id": "google/gemini-2.0-flash-001",
     "name": "Gemini 2.0 Flash",
     "provider": "openrouter"
+  },
+  {
+    "id": "custom-model",
+    "name": "Custom AI Model",
+    "provider": "custom"
   }
 ]
 ```
