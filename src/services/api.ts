@@ -122,6 +122,7 @@ export async function generateDesign(request: GenerateRequest, modelId: ModelId)
         ],
         temperature: 0.7,
         max_tokens: 8192,
+        stream: false,
       }),
     });
 
