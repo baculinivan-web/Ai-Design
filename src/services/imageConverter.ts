@@ -86,6 +86,20 @@ async function waitForIframeRender(doc: Document): Promise<void> {
   await new Promise(resolve => setTimeout(resolve, 50));
 }
 
+async function loadHtmlIntoIframe(iframe: HTMLIFrameElement, html: string): Promise<Document> {
+  const loadPromise = new Promise<void>((resolve, reject) => {
+    iframe.onload = () => resolve();
+    iframe.onerror = () => reject(new Error('Failed to load generated HTML'));
+  });
+
+  iframe.srcdoc = html;
+  await loadPromise;
+
+  const doc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!doc) throw new Error('Cannot access iframe document');
+  return doc;
+}
+
 export async function convertHtmlToImage(html: string): Promise<ConvertResult> {
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
@@ -101,12 +115,7 @@ export async function convertHtmlToImage(html: string): Promise<ConvertResult> {
   document.body.appendChild(iframe);
 
   try {
-    const doc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!doc) throw new Error('Cannot access iframe document');
-
-    doc.open();
-    doc.write(html);
-    doc.close();
+    const doc = await loadHtmlIntoIframe(iframe, html);
 
     // Wait for full render (fonts, images, layout)
     await waitForIframeRender(doc);

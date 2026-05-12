@@ -135,7 +135,6 @@ export async function generateDesign(request: GenerateRequest, modelId: ModelId)
     }
 
     const data = await response.json();
-    console.log('API Response:', data);
     
     let html = data.choices?.[0]?.message?.content;
 
@@ -166,8 +165,6 @@ export async function generateDesign(request: GenerateRequest, modelId: ModelId)
       html = html.substring(0, htmlEndIndex + 7);
     }
     
-    console.log('Generated HTML:', html.substring(0, 500));
-
     return { html };
   } catch (error) {
     if ((error as Error).message?.includes('fetch')) {
