@@ -54,38 +54,21 @@ function normalizeDesigns(value: unknown): DesignItem[] {
     .map((item) => normalizeDesign(typeof item.id === 'string' ? item.id : generateId(), item));
 }
 
-function mergeDesigns(primary: DesignItem[], fallback: DesignItem[]): DesignItem[] {
-  const seen = new Set<string>();
-  return [...primary, ...fallback].filter((design) => {
-    if (seen.has(design.id)) return false;
-    seen.add(design.id);
-    return true;
-  });
-}
-
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [activeDesigns, setActiveDesigns] = useState<DesignItem[] | null>(null);
   const [projectsLoading, setProjectsLoading] = useState(true);
 
   // Active project is derived from the projects list to ensure reactivity
-  const activeProjectBase = projects.find(p => p.id === activeProjectId) || null;
-  const activeProject = activeProjectBase
-    ? {
-        ...activeProjectBase,
-        designs: activeDesigns ? mergeDesigns(activeDesigns, activeProjectBase.designs) : activeProjectBase.designs,
-      }
-    : null;
+  const activeProject = projects.find(p => p.id === activeProjectId) || null;
 
   // Real-time subscription to user's projects
   useEffect(() => {
     if (!user) {
       setProjects([]);
       setActiveProjectId(null);
-      setActiveDesigns(null);
       setProjectsLoading(false);
       return;
     }
@@ -149,26 +132,6 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [user?.uid]); // Use user.uid for better stability
 
-  useEffect(() => {
-    if (!user || !activeProjectId) {
-      setActiveDesigns(null);
-      return;
-    }
-
-    const designsRef = collection(db, 'users', user.uid, 'projects', activeProjectId, 'designs');
-    const q = query(designsRef, orderBy('createdAt', 'desc'));
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const designsList = snapshot.docs.map(doc => normalizeDesign(doc.id, doc.data()));
-      setActiveDesigns(designsList);
-    }, (error) => {
-      console.error('Firestore designs subscription error:', error);
-      setActiveDesigns([]);
-    });
-
-    return () => unsubscribe();
-  }, [user?.uid, activeProjectId]);
-
   const createProject = useCallback(async (name: string) => {
     if (!user) return;
 
@@ -207,11 +170,14 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     };
 
     const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
-    const designRef = doc(projectRef, 'designs', designId);
+    const project = projects.find(p => p.id === projectId);
+    if (!project) return;
     
-    await setDoc(designRef, newDesign);
-    await updateDoc(projectRef, { updatedAt: Date.now() });
-  }, [user]);
+    await updateDoc(projectRef, {
+      designs: [newDesign, ...project.designs],
+      updatedAt: Date.now(),
+    });
+  }, [user, projects]);
 
   const deleteProject = useCallback(async (id: string) => {
     if (!user) return;
