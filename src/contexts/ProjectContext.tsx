@@ -12,7 +12,8 @@ import {
   query, 
   orderBy
 } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '../services/firebase';
 
 interface ProjectContextValue {
   projects: Project[];
@@ -32,21 +33,60 @@ function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substring(2);
 }
 
+function normalizeDesign(id: string, data: Partial<DesignItem>): DesignItem {
+  const createdAt = data.createdAt && typeof data.createdAt === 'object' && 'toMillis' in data.createdAt
+    ? (data.createdAt as { toMillis: () => number }).toMillis()
+    : data.createdAt;
+
+  return {
+    id,
+    image: typeof data.image === 'string' ? data.image : '',
+    html: typeof data.html === 'string' ? data.html : '',
+    title: typeof data.title === 'string' && data.title.trim() ? data.title : 'design',
+    createdAt: typeof createdAt === 'number' ? createdAt : Date.now(),
+  };
+}
+
+function normalizeDesigns(value: unknown): DesignItem[] {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .filter((item): item is Partial<DesignItem> => !!item && typeof item === 'object')
+    .map((item) => normalizeDesign(typeof item.id === 'string' ? item.id : generateId(), item));
+}
+
+function mergeDesigns(primary: DesignItem[], fallback: DesignItem[]): DesignItem[] {
+  const seen = new Set<string>();
+  return [...primary, ...fallback].filter((design) => {
+    if (seen.has(design.id)) return false;
+    seen.add(design.id);
+    return true;
+  });
+}
+
 export function ProjectProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const [activeDesigns, setActiveDesigns] = useState<DesignItem[] | null>(null);
   const [projectsLoading, setProjectsLoading] = useState(true);
 
   // Active project is derived from the projects list to ensure reactivity
-  const activeProject = projects.find(p => p.id === activeProjectId) || null;
+  const activeProjectBase = projects.find(p => p.id === activeProjectId) || null;
+  const activeProject = activeProjectBase
+    ? {
+        ...activeProjectBase,
+        designs: activeDesigns ? mergeDesigns(activeDesigns, activeProjectBase.designs) : activeProjectBase.designs,
+      }
+    : null;
 
   // Real-time subscription to user's projects
   useEffect(() => {
     if (!user) {
       setProjects([]);
       setActiveProjectId(null);
+      setActiveDesigns(null);
       setProjectsLoading(false);
       return;
     }
@@ -63,10 +103,16 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     let isInitialLoad = true;
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const projectsList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Project[];
+      const projectsList = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          name: typeof data.name === 'string' ? data.name : 'untitled project',
+          designs: normalizeDesigns(data.designs),
+          createdAt: typeof data.createdAt === 'number' ? data.createdAt : Date.now(),
+          updatedAt: typeof data.updatedAt === 'number' ? data.updatedAt : Date.now(),
+        };
+      });
 
       setProjects(projectsList);
       
@@ -104,6 +150,26 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, [user?.uid]); // Use user.uid for better stability
 
+  useEffect(() => {
+    if (!user || !activeProjectId) {
+      setActiveDesigns(null);
+      return;
+    }
+
+    const designsRef = collection(db, 'users', user.uid, 'projects', activeProjectId, 'designs');
+    const q = query(designsRef, orderBy('createdAt', 'desc'));
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const designsList = snapshot.docs.map(doc => normalizeDesign(doc.id, doc.data()));
+      setActiveDesigns(designsList);
+    }, (error) => {
+      console.error('Firestore designs subscription error:', error);
+      setActiveDesigns([]);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, activeProjectId]);
+
   const createProject = useCallback(async (name: string) => {
     if (!user) return;
 
@@ -132,22 +198,26 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
   const addDesignToProject = useCallback(async (projectId: string, design: Omit<DesignItem, 'id' | 'createdAt'>) => {
     if (!user) return;
 
+    const designId = generateId();
+    
+    // Upload image to Firebase Storage instead of storing in Firestore
+    const imageRef = ref(storage, `users/${user.uid}/projects/${projectId}/designs/${designId}.png`);
+    await uploadString(imageRef, design.image, 'data_url');
+    const imageUrl = await getDownloadURL(imageRef);
+
     const newDesign: DesignItem = {
       ...design,
-      id: generateId(),
+      image: imageUrl, // Store URL instead of base64
+      id: designId,
       createdAt: Date.now(),
     };
 
-    const project = projects.find(p => p.id === projectId);
-    if (!project) return;
-
-    const updatedDesigns = [newDesign, ...project.designs];
+    const projectRef = doc(db, 'users', user.uid, 'projects', projectId);
+    const designRef = doc(projectRef, 'designs', designId);
     
-    await updateDoc(doc(db, 'users', user.uid, 'projects', projectId), {
-      designs: updatedDesigns,
-      updatedAt: Date.now(),
-    });
-  }, [user, projects]);
+    await setDoc(designRef, newDesign);
+    await updateDoc(projectRef, { updatedAt: Date.now() });
+  }, [user]);
 
   const deleteProject = useCallback(async (id: string) => {
     if (!user) return;
