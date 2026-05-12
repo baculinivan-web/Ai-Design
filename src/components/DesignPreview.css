@@ -7,10 +7,3 @@
   overflow: hidden;
   background: white;
 }
-
-.preview-iframe {
-  width: 100%;
-  min-height: 600px;
-  border: none;
-  display: block;
-}

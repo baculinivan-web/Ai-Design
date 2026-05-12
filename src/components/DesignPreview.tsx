@@ -1,5 +1,6 @@
 import './DesignPreview.css';
 import { extractHtmlTitle } from '../utils/htmlTitle';
+import { HtmlDesignFrame } from './HtmlDesignFrame';
 
 interface DesignPreviewProps {
   html: string;
@@ -10,12 +11,7 @@ export function DesignPreview({ html }: DesignPreviewProps) {
 
   return (
     <div className="design-preview">
-      <iframe
-        title={iframeTitle}
-        className="preview-iframe"
-        sandbox=""
-        srcDoc={html}
-      />
+      <HtmlDesignFrame html={html} title={iframeTitle} />
     </div>
   );
 }

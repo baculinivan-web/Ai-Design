@@ -252,14 +252,10 @@
   box-shadow: 0 8px 40px var(--shadow);
 }
 
-.gallery-html-preview {
-  width: min(100%, 900px);
-  height: min(calc(100vh - 220px), 900px);
+.gallery-html-frame {
   border: 1px solid var(--border);
   border-radius: 12px;
   box-shadow: 0 8px 40px var(--shadow);
-  background: white;
-  display: block;
 }
 
 .img-wrapper {
@@ -440,7 +436,4 @@
     max-height: calc(100vh - 260px);
   }
 
-  .gallery-html-preview {
-    height: min(calc(100vh - 260px), 760px);
-  }
 }

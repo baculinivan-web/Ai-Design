@@ -6,6 +6,7 @@ import { useProjects } from '../contexts/ProjectContext';
 import { PromptInput } from './PromptInput';
 import { LoadingIndicator } from './LoadingIndicator';
 import { ErrorMessage } from './ErrorMessage';
+import { HtmlDesignFrame } from './HtmlDesignFrame';
 import { ProjectNameModal } from './ProjectNameModal';
 import { ProjectsList } from './ProjectsList';
 import { Download, Copy, Plus, ArrowLeft } from 'lucide-react';
@@ -318,11 +319,11 @@ export function MainPage() {
                     {item.image ? (
                       <img src={item.image} alt={item.title} className="gallery-img" />
                     ) : (
-                      <iframe
+                      <HtmlDesignFrame
                         title={item.title}
-                        className="gallery-html-preview"
-                        sandbox=""
-                        srcDoc={item.html}
+                        className="gallery-html-frame"
+                        html={item.html}
+                        maxHeightOffset={220}
                       />
                     )}
                     <div className="img-overlay">

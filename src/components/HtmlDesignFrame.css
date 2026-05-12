@@ -1,0 +1,15 @@
+.html-design-frame {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+  background: white;
+}
+
+.html-design-frame__iframe {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: block;
+  border: 0;
+  transform-origin: top left;
+  overflow: hidden;
+}
