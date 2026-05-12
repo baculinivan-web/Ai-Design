@@ -12,8 +12,7 @@ import {
   query, 
   orderBy
 } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../services/firebase';
+import { db } from '../services/firebase';
 
 interface ProjectContextValue {
   projects: Project[];
@@ -199,15 +198,10 @@ export function ProjectProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     const designId = generateId();
-    
-    // Upload image to Firebase Storage instead of storing in Firestore
-    const imageRef = ref(storage, `users/${user.uid}/projects/${projectId}/designs/${designId}.png`);
-    await uploadString(imageRef, design.image, 'data_url');
-    const imageUrl = await getDownloadURL(imageRef);
 
     const newDesign: DesignItem = {
       ...design,
-      image: imageUrl, // Store URL instead of base64
+      image: '',
       id: designId,
       createdAt: Date.now(),
     };

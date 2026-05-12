@@ -92,17 +92,15 @@ export function MainPage() {
       );
 
       setState(prev => ({ ...prev, html: response.html, status: 'converting' }));
-
-      const imageResult = await convertHtmlToImage(response.html);
       const title = extractHtmlTitle(response.html) ?? 'design';
 
       await addDesignToProject(projectId, {
-        image: imageResult.dataUrl,
+        image: '',
         html: response.html,
         title,
       });
 
-      setState(prev => ({ ...prev, image: imageResult.dataUrl, status: 'ready', prompt: '' }));
+      setState(prev => ({ ...prev, image: null, status: 'ready', prompt: '' }));
     } catch (error) {
       setState(prev => ({ ...prev, error: (error as Error).message, status: 'error' }));
     }
@@ -117,9 +115,10 @@ export function MainPage() {
     setState(prev => ({ ...prev, status: 'idle', error: null }));
   };
 
-  const handleDownload = (image: string, title: string) => {
+  const handleDownload = async (item: { image: string; html: string; title: string }) => {
+    const image = item.image || (await convertHtmlToImage(item.html)).dataUrl;
     const link = document.createElement('a');
-    link.download = `${safeDownloadBasename(title)}.png`;
+    link.download = `${safeDownloadBasename(item.title)}.png`;
     link.href = image;
     link.click();
   };
@@ -175,7 +174,7 @@ export function MainPage() {
 
   const isLoading = state.status === 'generating' || state.status === 'converting';
   const isInputDisabled = isLoading || !selectedModel;
-  const loadingMsg = state.status === 'generating' ? 'Generating your design...' : 'Converting to image...';
+  const loadingMsg = state.status === 'generating' ? 'Generating your design...' : 'Saving design...';
   const isCenteredView = !activeProject;
   const visibleProjects = activeProject
     ? projects.filter((project) => project.id !== activeProject.id)
@@ -316,11 +315,23 @@ export function MainPage() {
                   onClick={() => setActiveDesignIndex(i)}
                 >
                   <div className="img-wrapper">
-                    <img src={item.image} alt={item.title} className="gallery-img" />
+                    {item.image ? (
+                      <img src={item.image} alt={item.title} className="gallery-img" />
+                    ) : (
+                      <iframe
+                        title={item.title}
+                        className="gallery-html-preview"
+                        sandbox=""
+                        srcDoc={item.html}
+                      />
+                    )}
                     <div className="img-overlay">
                       <button
                         className="icon-btn"
-                        onClick={(e) => { e.stopPropagation(); handleDownload(item.image, item.title); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handleDownload(item);
+                        }}
                         title="Download PNG"
                       >
                         <Download size={18} />
